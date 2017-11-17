@@ -9,7 +9,7 @@ class Player(object):
         self.storage=dict()
         self.target = str()
         self.completed_data = list()
-        self.undiagnozed = []
+        self.undiagnozed = list()
         
     def _str_(self):
         print("ID: ",self.id,file=sys.stderr)
@@ -24,17 +24,15 @@ class Player(object):
                 self.data_list.remove(i)
         
 robot = Player(0)
-
-used_samples = []
-def select_best_sample(avaible_samples):
-    max_health=0
-    max_key=0
+def select_best_sample(avaible_samples,robot):
+    max_health=-1
+    max_key=-1
     for key, dic in avaible_samples.items():
-        if int(dic['health']) > int(max_health) and key not in used_samples:
+        if int(dic['health']) > int(max_health) and dic['carried_by'] == -1 and key not in robot.data_list:
+            print(key,"dic",dic,file=sys.stderr)
             max_health=int(dic['health'])
             max_key=key
-    if max_key not in used_samples:
-        used_samples.append(max_key)
+            
     print("MAX",max_key,file=sys.stderr)
     return max_key
 
@@ -56,16 +54,19 @@ def enough_molecoues(avaible_samples,robot):
                 #potrzebuje obliczyc ile molekul do wczesniejszych elementow mam juz w plecaku
                 if(used_molecues(avaible_samples,robot,i) < needed_dictionary[i]):
                     return i
+            print("powinieneinm dodac", sample_id,file=sys.stderr)
+                    
             if sample_id not in robot.completed_data:
+                print("dodaje", sample_id, file=sys.stderr)
                 robot.completed_data.append(sample_id)                 
     return True    
     
 project_count = int(input())
 for i in range(project_count):
     a, b, c, d, e = [int(j) for j in input().split()]
-
+avaible_samples = dict()
 while True:
-    print("used samples: ",used_samples, file=sys.stderr)
+    
     for i in range(2):        
         target, eta, score, storage_a, storage_b, storage_c, storage_d, storage_e, expertise_a, expertise_b, expertise_c, expertise_d, expertise_e = input().split()
         eta = int(eta)
@@ -83,24 +84,29 @@ while True:
             robot.storage['E'] = int(storage_e)
             robot.target = target
             
-        if i==1 and target == "DIAGNOSIS" and robot.target == "DIAGNOSIS":
-            print("WAIT")
+       # if i==1 and target == "DIAGNOSIS" and robot.target == "DIAGNOSIS":
+        #    print("WAIT")
             
     available_a, available_b, available_c, available_d, available_e = [int(i) for i in input().split()]
     print("Target: ",robot.target, file=sys.stderr)
     robot._str_()
+    print("sample", avaible_samples, file=sys.stderr)
+    
     if robot.target == "START_POS":
         print("GOTO SAMPLES")
     
     elif robot.target == "SAMPLES":
-        if len(robot.undiagnozed) == 3:
+        if len(robot.undiagnozed) >= 2:
             print("GOTO DIAGNOSIS")
         else:
-            print("CONNECT " + str(3 - len(robot.undiagnozed)))
+            print("CONNECT 1")
         
     elif robot.target == "DIAGNOSIS": 
-        if len(robot.data_list) < 3:
-            best_sample_id = select_best_sample(avaible_samples)
+        if len(robot.undiagnozed) > 0:
+            examine_sample = robot.undiagnozed.pop(0)
+            print("CONNECT "+str(examine_sample))
+        elif  len(robot.data_list) < 3:
+            best_sample_id = select_best_sample(avaible_samples,robot)
             print("best",best_sample_id,file=sys.stderr)
             print("CONNECT "+str(best_sample_id))
             print(best_sample_id, file = sys.stderr)
@@ -123,23 +129,28 @@ while True:
             robot._str_()
             print("CONNECT ",robot.completed_data.pop(0))
             robot._str_()
+        elif len(robot.data_list) > 0:
+            print("GOTO MOLECULES")
         else:
-            print("GOTO DIAGNOSIS")
+            print("GOTO SAMPLES")
     else:
-        print("SOMETHING IS WRONG")
+        print("SOMETHING IS WRONG BITCH")
         
 
-    avaible_samples = dict()
+    avaible_samples.clear()
     sample_count = int(input())
+    robot.undiagnozed.clear()
+    
     for i in range(sample_count):
         sample_id, carried_by, rank, expertise_gain, health, cost_a, cost_b, cost_c, cost_d, cost_e = input().split()
         carried_by = int(carried_by)
-        if sample_id not in used_samples and carried_by != -1:
-             used_samples.append(sample_id)
+        health = int(health)
+        
         rank = int(rank)
         
-        if carried_by == 0 and health == -1:
-            robot.undiagnozed = set(robot.undiagnozed.append(sample_id))
+        if health == -1 and carried_by == 0:
+                print("sample id: ",sample_id,file=sys.stderr)
+                robot.undiagnozed.append(int(sample_id))
             
         cost=dict()
         cost['A']=int(cost_a)
@@ -151,7 +162,7 @@ while True:
         sample=dict()
         sample['health']=int(health)
         sample['costs']=cost
+        sample['carried_by']=carried_by
         
         avaible_samples[str(sample_id)] = sample
         
-    print("sample", avaible_samples, file=sys.stderr)
