@@ -2,8 +2,23 @@ import sys
 import time
 from itertools import chain, combinations
 from copy import deepcopy
+
+project_count = int(input())
+projects = list()
+for i in range(project_count):
+    x=input().split()
+    x = [int(j) for j in x]
+    projects.append(x)
+project = sorted(projects, key = lambda x: sum(x))[0]
+main_project = list()
+print(project,file=sys.stderr)
+for i in range(len(project)):
+    if project[i] > 0:
+        for j in range(i):
+            main_project.append(chr(65+i))
+print(main_project,file=sys.stderr)
+### DIAGNOSIS MODULE ###
 def powerset(iterable):
-    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
@@ -14,8 +29,8 @@ def return_powersets(array):
     
     for key,dic in array.items():
         if dic['carried_by'] != 1 and dic['health'] > 0:
-            all_samples.append(key)
-            
+            all_samples.insert(0,key)
+             
     for result in powerset(all_samples):
         if len(result) <= 3:
             powerset_result.append(list(result))
@@ -41,7 +56,7 @@ def costs_of_set(one_set, avaible_molecules,avaible_samples):
     
 def afford_on_set(robot,avaible_molecules,set_costs):
     empty_slots = 10 - sum(robot.storage.values())
-    print("set_costs",set_costs,file=sys.stderr)
+    #print("set_costs",set_costs,file=sys.stderr)
     for key,value in set_costs.items():
         needed_slots = value-robot.storage[key]
         
@@ -61,17 +76,30 @@ def health_of_set(one_set, avaible_samples):
 def all_avaible_powersets(robot,avaible_molecules,avaible_samples):
     subsets = return_powersets(avaible_samples)
     avaible_subsets = list()
-    print("subset",subsets,file=sys.stderr)
+    #print("subset",subsets,file=sys.stderr)
     for one_set in subsets:
         set_cost = costs_of_set(one_set,avaible_molecules,avaible_samples)
         if afford_on_set(robot,avaible_molecules,set_cost):
             avaible_subsets.append([one_set, health_of_set(one_set,avaible_samples)])
     return avaible_subsets
+
+def consider_project(x,avaible_samples):
+    equal_molecule = 0
+    print(x,file=sys.stderr)
+    for sample_id in x[0]:
+        print(sample_id,"if",file=sys.stderr)
+        if avaible_samples[sample_id]['gain'] in main_project:
+            equal_molecule += 1
+            
+    return equal_molecule * 10
     
 def best_set(robot, avaible_molecules,avaible_samples):
     x = all_avaible_powersets(robot,avaible_molecules,avaible_samples)
-    return sorted(x, key = lambda x: x[1], reverse = True)[0][0]
+    x = sorted(x)
+    return sorted(x, key = lambda x: x[1]+len(x[0])*5 + consider_project(x,avaible_samples), reverse = True)[0][0]
     
+### STRUCTURE ###
+
 class Player(object):
     def __init__(self,id):
         self.id = id
@@ -81,7 +109,7 @@ class Player(object):
         self.completed_data = list()
         self.undiagnozed = list()
         self.data_level = 0
-        self.array_of_levels = [1,1,2,2,2,3]
+        self.array_of_levels = [1,1,1,1,1,1,2,2,2,3]
         
     def _str_(self):
         print("ID: ",self.id,file=sys.stderr)
@@ -93,13 +121,8 @@ class Player(object):
 
 robot = Player(0)
 
+### MOLECULES MODULE ###
 
-def used_molecues(avaible_samples,robot,molecue):
-    molecues_sum = 0
-    for i in robot.completed_data: #petla po spelnionych molekuach
-        molecues_sum += avaible_samples[i]['costs'][molecue]
-    return robot.storage[molecue] - molecues_sum #roznica tego co ma od wykorzystanych
-    
 def enough_molecoues(avaible_samples,robot,avaible_molecues):
     if sum(robot.storage.values()) < 10:
         for i in range(len(robot.data_list)): #uwzgledniam po kolei dla trzech elementow
@@ -107,13 +130,21 @@ def enough_molecoues(avaible_samples,robot,avaible_molecues):
             needed_dictionary = avaible_samples[sample_id]['costs'] #slownik rzeczy potrzebnych do danej probki
             need = [key for key, value in needed_dictionary.items() if value > 0] #molekuy ktory sa niezerowe (potrzebne)
 
-            for i in need:
+            for j in need:
                 #potrzebuje obliczyc ile molekul do wczesniejszych elementow mam juz w plecaku
-                if(used_molecues(avaible_samples,robot,i) < needed_dictionary[i]):
-                    if avaible_molecues[i] > 0:
-                        return i          
+                used = 0
+                for k in range(0,i):
+                    used_id = robot.data_list[k]
+                    used += avaible_samples[used_id]['costs'][j]
+                
+                if(robot.storage[j] - used < needed_dictionary[j]):
+                    if avaible_molecues[j] > 0:
+                        return j
+                        
+   # print("wyrzucam prawde", needed_dictionary, need, file=sys.stderr)
     return True    
     
+### LABORATORY MODULE ###
 def good_sample(new_set,avaible_samples,level):
     health_sum = 0
     for sample_id in new_set:
@@ -140,9 +171,7 @@ def data_finished(robot):
             finished_data.append(sample_id)
     return finished_data
         
-project_count = int(input())
-for i in range(project_count):
-    a, b, c, d, e = [int(j) for j in input().split()]
+
 avaible_samples = dict()
 avaible_molecues = dict()
 czekaj=0
@@ -206,9 +235,11 @@ while True:
         sample['health']=int(health)
         sample['costs']=cost
         sample['carried_by']=carried_by
+        sample['gain']=expertise_gain
         
         avaible_samples[sample_id] = sample
-
+    
+    print(avaible_samples, file=sys.stderr)
     robot._str_()
     #print("sample", avaible_samples, file=sys.stderr)
     
@@ -221,8 +252,6 @@ while True:
         else:
             eta_move = 2
             print("GOTO DIAGNOSIS")
-            if robot.data_level <= 2:    
-                robot.data_level +=1
         
     elif robot.target == "DIAGNOSIS": 
         print("diagnozujemy",file=sys.stderr)
@@ -238,7 +267,7 @@ while True:
         else:
             print("cr",file=sys.stderr)
             current_set = best_set(robot,avaible_molecues,avaible_samples)
-            print("www",file=sys.stderr)
+            print("www",current_set,file=sys.stderr)
             flag = 0
             for sample_id in robot.data_list:
                 if sample_id not in current_set:
@@ -283,7 +312,12 @@ while True:
             print("WAIT")
             
         elif len(robot.completed_data) > 0:
-            print("CONNECT ",robot.completed_data.pop(0))
+            sample_id = robot.completed_data.pop(0)
+            print("CONNECT ",sample_id)            
+            if robot.data_level <= len(robot.array_of_levels)-4:    
+                robot.data_level +=1
+            if avaible_samples[sample_id]['gain'] in main_project:
+                main_project.remove(avaible_samples[sample_id]['gain'])
             
         else:
             print("rzed",file=sys.stderr)
