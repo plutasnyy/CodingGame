@@ -1,9 +1,35 @@
 import sys
 import math
+import time
 
+from itertools import chain, combinations
+from copy import deepcopy
+
+def powerset(iterable):
+    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+def return_powersets(array):
+    powerset_result = []
+    all_samples = list()
+    start_time = time.time()
+    
+    for key,dic in array.items():
+        if dic['carried_by'] != 1:
+            all_samples.append(key)
+            
+    for result in powerset(all_samples):
+        if len(result) <= 3:
+            powerset_result.append(list(result))
+        if len(result) == 4:
+            break
+        if time.time() - start_time > 0.0035:
+            break
+    return powerset_result
+    
 class Player(object):
     def __init__(self,id):
-        print("jestes tu?",file=sys.stderr)
         self.id = id
         self.data_list = []
         self.storage=dict()
@@ -38,7 +64,6 @@ def best_sample_id(avaible,avaible_samples):
     return best_id
 
 def enough_molecues(robot,avaible_molecues, dic):
-    print("a",avaible_molecues,file=sys.stderr)
     for key, value in avaible_molecues.items():
         if robot.storage[key] + value < dic[key]:
             return False
@@ -51,7 +76,47 @@ def all_avaible_samples(robot,avaible_samples,avaible_molecues):
             options.append(sample_id)
         
     return options    
+    
+def max_molecules(robot,avaible_molecules):
+    max_molecules = dict()
+    for key, value in avaible_molecules.items():
+        max_molecules[key] = value + robot.storage[key]
+    return max_molecules
 
+def costs_of_set(one_set, avaible_molecules,avaible_samples):
+    cost = dict()
+    for key, value in avaible_molecules.items():
+        cost[key] = 0
+        for sample_id in one_set:
+            cost[key] += avaible_samples[sample_id]['costs'][key]
+    return cost
+    
+def afford_on_set(molecules,set_costs):
+    for key,value in set_costs.items():
+        if value > molecules[key]:
+            return False
+    return True
+
+def health_of_set(one_set, avaible_samples):
+    health = 0
+    for i in one_set:
+        health += avaible_samples[i]['health']
+    return health
+        
+def all_avaible_powersets(robot,avaible_molecules,avaible_samples):
+    molecules = max_molecules(robot,avaible_molecules)
+    subsets = return_powersets(avaible_samples)
+    avaible_subsets = list()
+    for one_set in subsets:
+        set_cost = costs_of_set(one_set,avaible_molecules,avaible_samples)
+        if afford_on_set(molecules,set_cost):
+            avaible_subsets.append([one_set, health_of_set(one_set,avaible_samples)])
+    return avaible_subsets
+    
+def best_set(robot, avaible_molecules,avaible_samples):
+    x = all_avaible_powersets(robot,avaible_molecules,avaible_samples)
+    return sorted(x, key = lambda x: x[1], reverse = True)[0][0]
+    
 def check_costs(costs, mol):
     for key, value in costs.items():
         if value > mol[key]:
@@ -107,8 +172,7 @@ def enough_molecoues(avaible_samples,robot,avaible_molecues):
                 if(used_molecues(avaible_samples,robot,i) < needed_dictionary[i]):
                     if avaible_molecues[i] > 0:
                         return i
-                    else:
-                        return False
+
             print("powinieneinm dodac", sample_id,file=sys.stderr)
                     
             if sample_id not in robot.completed_data:
@@ -188,6 +252,7 @@ while True:
     robot._str_()
     print("sample", avaible_samples, file=sys.stderr)
     
+    print("Best set:",best_set(robot,avaible_molecues,avaible_samples),file=sys.stderr)
     
     if robot.target == "START_POS":
         print("GOTO SAMPLES")
@@ -211,30 +276,26 @@ while True:
             print("CONNECT "+str(examine_sample))
         #wyrzuc niepotrzebne        
         else:
-            avaible = all_avaible_samples(robot,avaible_samples,avaible_molecues)
+            current_set = best_set(robot,avaible_molecues,avaible_samples)
+            
             flag = 0
             for sample_id in robot.data_list:
-                if sample_id not in avaible:
+                if sample_id not in current_set:
                     print("CONNECT ", sample_id)
                     flag = 1
                     break
                 
             if flag == 0:
-                if len(avaible) == 0:
+                if len(current_set) == 0:
                     print("GOTO SAMPLES")
                 
                 else:
-                    current_id = best_sample_id(avaible,avaible_samples)
-                    
-                    if len(robot.data_list) > 1:
-                        for sample_id in robot.data_list:
-                            if sample_id != current_id:
-                                print("CONNECT ", sample_id)
-                                break
-                            
-                    elif current_id not in robot.data_list:                        
-                        print("CONNECT ", current_id)
+                    if len(current_set) != len(robot.data_list):
                         
+                        for sample_id in current_set:
+                            if sample_id not in robot.data_list:
+                                print("CONNECT ", sample_id)
+                                break                        
                     else:
                         print("GOTO MOLECULES")                                
         
