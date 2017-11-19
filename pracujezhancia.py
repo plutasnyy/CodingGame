@@ -96,7 +96,7 @@ def consider_project(x,avaible_samples):
 def best_set(robot, avaible_molecules,avaible_samples):
     x = all_avaible_powersets(robot,avaible_molecules,avaible_samples)
     x = sorted(x)
-    return sorted(x, key = lambda x: x[1]+len(x[0])*5 + consider_project(x,avaible_samples), reverse = True)[0][0]
+    return sorted(x, key = lambda x: x[1]+len(x[0])*10, reverse = True)[0][0]
     
 ### STRUCTURE ###
 
